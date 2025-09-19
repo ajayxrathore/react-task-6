@@ -30,7 +30,7 @@ function AddTaskForm({ listId }) {
 
       const listDocRef = doc(db, "lists", listId);
       await updateDoc(listDocRef, {
-        taskCount: increment(1), 
+        taskCount: increment(1),
         updatedAt: new Date(),
       });
 
@@ -78,7 +78,7 @@ function AddTaskForm({ listId }) {
             onClick={() => setTaskPriority(p)}
             className={`flex-1 px-2 py-1 text-xs rounded ${
               taskPriority === p
-                ? "bg-indigo-600 text-white"
+                ? "bg-green-600 text-white"
                 : "bg-gray-200 hover:bg-gray-300"
             }`}
           >
@@ -88,7 +88,7 @@ function AddTaskForm({ listId }) {
       </div>
       <button
         type="submit"
-        className="w-full py-2 font-semibold text-white text-sm bg-indigo-500 rounded-lg hover:bg-indigo-600"
+        className="w-full py-2 font-semibold text-white text-sm bg-green-500 rounded-lg hover:bg-green-600"
       >
         Add Task
       </button>

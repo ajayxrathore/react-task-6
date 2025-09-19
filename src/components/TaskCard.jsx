@@ -1,12 +1,12 @@
 import React from "react";
 import { useDraggable } from "@dnd-kit/core";
-function TaskCard({ task, onDelete }) {
-    
+function TaskCard({ task,listId, onDelete }) {
+
 
     const {attributes, listeners, setNodeRef, transform} = useDraggable({ id: task.id,
         data:{
             task,
-            listId: task.listId,
+            listId,
             taskId: task.id,
         }
      });
@@ -24,14 +24,14 @@ function TaskCard({ task, onDelete }) {
       <div className="flex justify-between items-start">
         <h4 {...listeners} className="font-semibold text-gray-800 text-md">{task.title}</h4>
         <button onClick={(e)=>{e.stopPropagation(),console.log('button clicked')
-        ,onDelete()}} className="text-gray-400 hover:text-red-500 p-1 rounded-full text-xs">✕</button>
+        ,onDelete()}} className="text-gray-900 hover:text-red-500 p-1 rounded-full text-xs">✕</button>
       </div>
       <p {...listeners} className="text-sm text-gray-600 my-1">{task.description}</p>
       <div {...listeners}  className="flex justify-between items-center mt-2">
-        <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${priorityClasses[task.priority] || "bg-gray-100 text-gray-800"}`}>
+        <span {...listeners} className={`px-2 py-0.5 text-xs font-bold rounded-full ${priorityClasses[task.priority] || "bg-gray-100 text-gray-800"}`}>
           {task.priority}
         </span>
-        {task.dueDate && <span className="text-xs text-gray-500">{task.dueDate}</span>}
+        {task.dueDate && <span {...listeners} className="text-xs text-gray-500">{task.dueDate}</span>}
       </div>
     </div>
 );

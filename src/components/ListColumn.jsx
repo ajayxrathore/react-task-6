@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase/firestore.js";
+import { useDroppable } from "@dnd-kit/core";
+
 import {
   collection,
   query,
@@ -14,6 +16,12 @@ import AddTaskForm from "./AddTaskForm";
 
 function ListColumn({ list, onDeleteList }) {
   const [tasks, setTasks] = useState([]);
+  const { setNodeRef, isOver } = useDroppable({
+    id: list.id,
+    data: {
+      listId: list.id, // ✅ lets us know which list was dropped into
+    },
+  });
 
   useEffect(() => {
     const tasksCollectionRef = collection(db, "lists", list.id, "tasks");
@@ -37,18 +45,21 @@ function ListColumn({ list, onDeleteList }) {
         taskCount: increment(-1), // Decrements the count by 1
         updatedAt: new Date(),
       });
-     
+
     } catch (error) {
       console.error("Error deleting task: ", error);
     }
   };
   return (
-    <div className="flex-shrink-0 w-80">
-      <div className="bg-white rounded-xl shadow-md">
+    <div ref={setNodeRef} className="flex-shrink-0 w-80">
+      <div className={`bg-white rounded-xl shadow-md transition-colors ${
+        isOver ? "ring-2 ring-blue-400" : ""
+      } `}>
         <div className="p-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center rounded-t-xl">
           <h3 className="font-bold text-gray-700">{list.name}</h3>
           <button
             onClick={onDeleteList}
+
             className="text-gray-400 hover:text-red-500 p-1"
           >
             <svg
@@ -67,11 +78,12 @@ function ListColumn({ list, onDeleteList }) {
             </svg>
           </button>
         </div>
-        <div className="p-3 max-h-96 overflow-y-auto space-y-3">
+        <div  className="p-3 max-h-96 overflow-y-auto space-y-3">
           {tasks.length > 0 ? (
             tasks.map((task) => (
               <TaskCard
                 key={task.id}
+                listId={list.id}
                 task={{ ...task, listId: list.id }}
                 onDelete={() => handleDeleteTask(task.id)}
               />

@@ -19,7 +19,7 @@ function Header(){
        <header className="bg-white shadow-sm">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-3">
-          <h1 className="text-xl font-bold text-gray-900">My To-Do App</h1>
+          <h1 className="text-xl font-bold text-gray-900">To-Do </h1>
           <div className="flex items-center space-x-4">
             <p className="text-sm text-gray-600 hidden sm:block">{currentUser?.email}</p>
             <Button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600">

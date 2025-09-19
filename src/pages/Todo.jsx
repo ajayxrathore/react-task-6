@@ -11,6 +11,7 @@ import {
   deleteDoc,
   getDocs,
   writeBatch,
+  increment,
   collectionGroup,
   updateDoc,
 } from "firebase/firestore";
@@ -61,7 +62,7 @@ function Todo() {
         owner: currentUser.uid,
         createdAt: new Date(),
         taskCount: 0,
-        updatedAt: new Date(), 
+        updatedAt: new Date(),
       });
       setListname("");
     } catch (error) {
@@ -80,6 +81,7 @@ function Todo() {
         batch.delete(taskDoc.ref);
       });
       batch.delete(listDocRef);
+
       await batch.commit();
     } catch (error) {
       console.error("Error deleting list and tasks: ", error);
@@ -89,17 +91,50 @@ function Todo() {
     const { active, over } = e;
     if (!active || !over) return;
     const taskId = active.id;
-    const listId = active.data.current.listId;
-    const newPriority = over.id;
+    const sourceListId = active.data.current.listId;
+    const destinationId = over.id;
+
     console.log("DragEnd event:", { active, over });
 
-    if (["High", "Medium", "Low"].includes(newPriority)) {
-      try {
-        const taskDocRef = doc(db, "lists", listId, "tasks", taskId);
-        await updateDoc(taskDocRef, { priority: newPriority });
-      } catch (error) {
-        console.error("Error updating task priority: ", error);
+    try {
+      // Case 1: Priority zone (High/Medium/Low)
+      if (["High", "Medium", "Low"].includes(destinationId)) {
+        const taskDocRef = doc(db, "lists", sourceListId, "tasks", taskId);
+        await updateDoc(taskDocRef, { priority: destinationId });
       }
+      // Case 2: Another list column
+      else {
+        const taskDocRef = doc(db, "lists", sourceListId, "tasks", taskId);
+        const newTaskDocRef = doc(db, "lists", destinationId, "tasks", taskId);
+
+        // Move task: delete from old list, add to new one
+        const taskSnapshot = await getDocs(
+          collection(db, "lists", sourceListId, "tasks")
+        );
+
+        const taskData = taskSnapshot.docs
+          .find((doc) => doc.id === taskId)
+          ?.data();
+
+        if (taskData) {
+          const batch = writeBatch(db);
+          batch.delete(taskDocRef);
+          batch.set(newTaskDocRef, { ...taskData, listId: destinationId });
+           batch.update(doc(db, "lists", sourceListId), {
+        taskCount: increment(-1),
+        updatedAt: new Date(),
+      });
+
+      // increment taskCount in new list
+      batch.update(doc(db, "lists", destinationId), {
+        taskCount: increment(1),
+        updatedAt: new Date(),
+      });
+          await batch.commit();
+        }
+      }
+    } catch (error) {
+      console.error("Error handling drag:", error);
     }
   };
 
@@ -111,12 +146,15 @@ function Todo() {
       }}
       onDragCancel={() => setActiveTask(null)}
     >
-      <div className="h-screen w-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
         <Header />
-        <main className="w-screen mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* "Create List" form is now at the top */}
-          <div className="bg-white p-6 rounded-xl shadow-lg mb-8 border border-gray-100">
-            <h2 className="text-lg font-semibold mb-4 text-gray-700">
+          <div className="bg-white p-6 rounded-2xl shadow-lg mb-8 border border-slate-200 transition-all hover:shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-slate-800 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
               Create a New List
             </h2>
             <form
@@ -127,20 +165,27 @@ function Todo() {
                 type="text"
                 value={listname}
                 onChange={(e) => setListname(e.target.value)}
-                placeholder="e.g., House Chores"
-                className="flex-grow px-4 py-3 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition-all"
+                placeholder="add your todos here"
+                className="flex-grow px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-700 placeholder-slate-400"
               />
               <button
                 type="submit"
-                className="px-6 py-3 font-bold text-white bg-blue-500 rounded-lg hover:bg-blue-600 shadow-md"
+                className="px-6 py-3 font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl hover:from-blue-600 hover:to-blue-700 shadow-md transition-all flex items-center justify-center gap-2"
               >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
                 Create List
               </button>
             </form>
           </div>
+
           <div className="mb-8">
-            <h2 className="text-lg font-semibold mb-3 text-gray-700">
-              Change Task Priority (Drag & Drop)
+            <h2 className="text-xl font-bold mb-4 text-slate-800 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.2 6.5 10.266a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clipRule="evenodd" />
+              </svg>
+              Change Task Priority
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <PriorityDropZone id="High" label="High" color="#fecaca" />
@@ -148,11 +193,17 @@ function Todo() {
               <PriorityDropZone id="Low" label="Low" color="#bbf7d0" />
             </div>
           </div>
+
           {/* Area to display lists in a responsive grid */}
           <div>
-            <h2 className="text-2xl font-bold mb-5 text-gray-800">My Lists</h2>
+            <h2 className="text-2xl font-bold mb-6 text-slate-800 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              </svg>
+              My Lists
+            </h2>
             {lists.length > 0 ? (
-              <div className="flex items-start space-x-4 pb-4 overflow-x-auto">
+              <div className="flex items-start gap-5 pb-4 overflow-x-auto custom-scrollbar">
                 {lists.map((list) => (
                   <ListColumn
                     key={list.id}
@@ -162,9 +213,15 @@ function Todo() {
                 ))}
               </div>
             ) : (
-              <div className="p-8 bg-white rounded-xl shadow-md text-center text-gray-500 border border-dashed border-gray-300">
-                <p className="text-lg">
+              <div className="p-8 bg-white rounded-2xl shadow-md text-center text-slate-500 border-2 border-dashed border-slate-200 transition-all hover:border-blue-300">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-slate-300 mb-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                </svg>
+                <p className="text-lg font-medium text-slate-500">
                   You don't have any lists yet. Create one above to get started!
+                </p>
+                <p className="mt-2 text-sm text-slate-400">
+                  Lists help you organize your tasks into categories
                 </p>
               </div>
             )}
